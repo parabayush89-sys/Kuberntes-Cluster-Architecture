@@ -1,0 +1,369 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Kubernetes Architecture — Handwritten Study Notes</title>
+<style>
+:root{
+  --ink:#24334a;--muted:#65748b;--paper:#fffdf5;--paper2:#fff8e7;
+  --blue:#cfe8ff;--pink:#ffd9e4;--yellow:#fff0a8;--green:#d9f3df;
+  --purple:#e8ddff;--line:#d8d2c4;--accent:#3268a8;--red:#b94b58;
+}
+*{box-sizing:border-box}
+html{scroll-behavior:smooth}
+body{margin:0;background:
+  radial-gradient(circle at 15% 20%,#ffffff80 0 1px,transparent 2px),
+  radial-gradient(circle at 80% 70%,#ffffff70 0 1px,transparent 2px),
+  #d8dce2;color:var(--ink);font-family:"Segoe Print","Comic Sans MS","Bradley Hand",cursive;line-height:1.72}
+.shell{max-width:1440px;margin:auto;display:grid;grid-template-columns:270px 1fr;min-height:100vh}
+.sidebar{background:#24334a;color:#f7f4e9;padding:28px 20px;position:sticky;top:0;height:100vh;overflow:auto;font-family:Arial,sans-serif}
+.brand{font-weight:800;font-size:18px;letter-spacing:.5px;margin-bottom:6px}
+.brand small{display:block;color:#b9c9dc;font-size:11px;font-weight:500;letter-spacing:1.5px;margin-top:5px}
+.progress{height:5px;background:#53647a;border-radius:9px;margin:18px 0 24px;overflow:hidden}
+.progress span{display:block;width:100%;height:100%;background:#f4d35e}
+.navtitle{font-size:10px;color:#9fb2c8;text-transform:uppercase;letter-spacing:1.5px;margin:22px 0 8px}
+.sidebar a{display:block;color:#e7edf5;text-decoration:none;padding:8px 10px;border-radius:8px;font-size:13px;margin:3px 0}
+.sidebar a:hover{background:#3a4d68}
+.sidebar .sub{padding-left:22px;font-size:12px;color:#c2d0df}
+.side-note{font-size:11px;color:#b9c9dc;border-top:1px dashed #65758a;margin-top:25px;padding-top:14px}
+main{padding:34px clamp(18px,4vw,58px) 70px;min-width:0}
+.paper{max-width:1020px;margin:12px auto 35px;background-color:#fffef8;
+  background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#dce8f2 32px,#dce8f2 33px);
+  padding:clamp(22px,4vw,54px) clamp(24px,4vw,58px) clamp(28px,4vw,60px) clamp(42px,5vw,76px);
+  box-shadow:5px 9px 0 #b9bec5,0 18px 38px #26384a30;border:1px solid #e1ddcf;
+  border-radius:3px;position:relative}
+.paper:before{content:"";position:absolute;left:30px;top:0;bottom:0;border-left:2px solid #e9a5a5;opacity:.9}
+.paper:after{content:"";position:absolute;left:-13px;top:24px;bottom:24px;width:25px;
+  background:repeating-radial-gradient(circle at 13px 10px,#aeb5bf 0 4px,#eef0f3 4.5px 7px,transparent 7.5px 32px);
+  filter:drop-shadow(1px 1px 1px #7d8794);pointer-events:none}
+.cover{min-height:390px;display:flex;flex-direction:column;justify-content:center;padding:25px 4% 40px;
+  border-bottom:2px dashed #c9c1ae;position:relative;background:linear-gradient(135deg,#fffef8dd,#fff9e8aa);border-radius:4px}
+.kicker{font:700 11px Arial,sans-serif;letter-spacing:2px;color:var(--accent);text-transform:uppercase}
+.author{font-size:19px;font-weight:700;color:#9a4e55;margin-top:24px;transform:rotate(-2deg);width:max-content;
+  border-bottom:2px solid #d58a8e;padding:0 8px 3px 2px}
+h1{font-size:clamp(36px,6vw,62px);line-height:1.08;margin:18px 0 12px;letter-spacing:-1.5px}
+.subtitle{font-size:19px;color:var(--muted);max-width:680px}
+.cover-tags{display:flex;gap:8px;flex-wrap:wrap;margin-top:25px}
+.tag{font:700 11px Arial,sans-serif;padding:7px 11px;border-radius:20px;background:var(--blue);color:#244b70}
+.tag:nth-child(2){background:var(--yellow)}.tag:nth-child(3){background:var(--pink)}
+.cover-doodle{position:absolute;right:6%;bottom:30px;font-size:60px;transform:rotate(8deg);opacity:.22}
+section{padding:34px 2% 22px;border-bottom:1px dashed var(--line);scroll-margin-top:24px}
+h2{font-size:29px;margin:0 0 17px;line-height:1.2}
+h3{font-size:20px;margin:24px 0 8px}
+p{margin:9px 0}
+.lead{font-size:17px}
+.marker{background:linear-gradient(transparent 54%,var(--yellow) 54%);padding:0 3px;font-weight:700}
+.blue{background:linear-gradient(transparent 52%,var(--blue) 52%);font-weight:700}
+.pink{background:linear-gradient(transparent 52%,var(--pink) 52%);font-weight:700}
+.green{background:linear-gradient(transparent 52%,var(--green) 52%);font-weight:700}
+.note{padding:15px 18px;margin:17px 0;border-left:5px solid #e7c84e;background:#fff8d9;border-radius:4px 12px 12px 4px}
+.note.bluebox{border-color:#6aa6d9;background:#edf7ff}
+.note.greenbox{border-color:#68ad7b;background:#effaf0}
+.note.redbox{border-color:#c86b77;background:#fff0f1}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:14px;margin:18px 0}
+.card{padding:15px 17px;border:1px solid #e1dac9;border-radius:12px;background:#fffefa}
+.card h3{margin:0 0 7px}
+.card.bluecard{background:#f0f8ff}.card.pinkcard{background:#fff3f6}.card.greencard{background:#f2fbf2}
+ul,ol{padding-left:24px}li{padding:3px 0}
+.diagram{background:#fbfaf4;border:1px solid #e4dfd2;border-radius:14px;padding:15px;margin:18px 0;overflow-x:auto}
+.diagram-title{font:700 11px Arial,sans-serif;text-transform:uppercase;letter-spacing:1.2px;color:#748095;margin:0 0 10px}
+svg{display:block;width:100%;height:auto;min-width:560px}
+.svgtext{font-family:Arial,sans-serif;fill:#24334a;font-size:14px;font-weight:700}
+.svgsmall{font-family:Arial,sans-serif;fill:#526176;font-size:11px}
+table{width:100%;border-collapse:collapse;margin:14px 0;font-size:15px}
+th,td{border:1px solid #ddd6c6;padding:10px 12px;text-align:left;vertical-align:top}
+th{background:#eaf3fc;font-family:Arial,sans-serif;font-size:12px;text-transform:uppercase;letter-spacing:.5px}
+tr:nth-child(even) td{background:#fffdf8}
+.flow{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin:15px 0}
+.step{padding:10px 13px;border-radius:10px;background:var(--blue);font-weight:700;border:1px solid #b8d5ed}
+.arrow{font:700 20px Arial,sans-serif;color:#75859a}
+.small{font-size:13px;color:var(--muted)}
+.footer{padding:25px 2% 0;text-align:center;color:#7b8490;font:11px Arial,sans-serif}
+.index-list{columns:2;column-gap:28px}
+.index-list a{display:block;color:#315f91;text-decoration:none;padding:4px 0;border-bottom:1px dotted #ded8ca}
+.index-list a:hover{text-decoration:underline}
+button{font:700 12px Arial,sans-serif;border:0;border-radius:20px;padding:10px 14px;background:#f2d45e;color:#24334a;cursor:pointer}
+.actions{display:flex;gap:8px;justify-content:flex-end;margin:0 auto 12px;max-width:1020px}
+@media(max-width:850px){.shell{grid-template-columns:1fr}.sidebar{position:relative;height:auto;padding:18px}.sidebar nav{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:2px}.navtitle,.side-note,.progress{display:none}main{padding:14px}.paper{padding:22px 24px}.paper:before{left:10px}.grid2{grid-template-columns:1fr}.index-list{columns:1}}
+@media print{body{background:white}.shell{display:block}.sidebar,.actions{display:none!important}main{padding:0}
+.paper{box-shadow:none;border:0;max-width:none;padding:15mm 15mm 15mm 20mm;background-color:#fffef8;
+background-image:repeating-linear-gradient(to bottom,transparent 0,transparent 31px,#dce8f2 32px,#dce8f2 33px)}
+.paper:before{left:12mm}.paper:after{display:none}section{break-inside:avoid}.diagram{break-inside:avoid}a{color:inherit}}
+</style>
+</head>
+<body>
+<div class="shell">
+<aside class="sidebar">
+  <div class="brand">STUDY NOTES <small>KUBERNETES STUDY NOTES</small></div>
+  <div class="progress"><span></span></div>
+  <nav>
+    <div class="navtitle">Start here</div>
+    <a href="#index">✦ Index / Contents</a>
+    <a href="#overview">01 · Big picture</a>
+    <a href="#docker">02 · Docker vs Kubernetes</a>
+    <a href="#architecture">03 · Cluster architecture</a>
+    <div class="navtitle">Worker node</div>
+    <a class="sub" href="#kubelet">04 · Kubelet</a>
+    <a class="sub" href="#kubeproxy">05 · Kube-proxy</a>
+    <a class="sub" href="#runtime">06 · Container runtime</a>
+    <div class="navtitle">Control plane</div>
+    <a class="sub" href="#apiserver">07 · API server</a>
+    <a class="sub" href="#scheduler">08 · Scheduler</a>
+    <a class="sub" href="#etcd">09 · etcd</a>
+    <a class="sub" href="#controllers">10 · Controller manager</a>
+    <a class="sub" href="#cloud">11 · Cloud controller manager</a>
+    <div class="navtitle">Revise</div>
+    <a href="#workflow">12 · Pod creation flow</a>
+    <a href="#recap">13 · Quick revision</a>
+    <a href="#accuracy">14 · Modern accuracy notes</a>
+    <a href="#assignment">15 · Practice assignment</a>
+  </nav>
+  <div class="side-note">Tip: use the print button to save these notes as a PDF. Highlighted lines are high-priority revision points.</div>
+</aside>
+<main>
+<div class="actions"><button onclick="window.print()">Print / Save PDF</button></div>
+<article class="paper">
+<header class="cover">
+  <div class="kicker">KUBERNETES STUDY NOTEBOOK</div>
+  <h1>Kubernetes<br><span style="color:#3268a8">Architecture</span></h1>
+  <div class="subtitle">A visual, handwritten-style guide to the Control Plane, Worker Nodes, and what happens when a Pod is created.</div>\n  <div class="author">-Ayush Parab</div>
+  <div class="cover-tags"><span class="tag">CONTROL PLANE</span><span class="tag">DATA PLANE</span><span class="tag">POD LIFECYCLE</span></div>
+  <div class="cover-doodle">✎</div>
+</header>
+
+<section id="index">
+<h2>✦ Index / Contents</h2>
+<p class="lead">Use this page as your roadmap. Follow the sections in order, then revise from the summary table.</p>
+<div class="index-list">
+<a href="#overview">01. Kubernetes — big picture</a><a href="#docker">02. Docker vs Kubernetes</a>
+<a href="#architecture">03. Cluster architecture diagram</a><a href="#kubelet">04. Kubelet</a>
+<a href="#kubeproxy">05. Kube-proxy</a><a href="#runtime">06. Container runtime</a>
+<a href="#apiserver">07. API server</a><a href="#scheduler">08. Scheduler</a>
+<a href="#etcd">09. etcd</a><a href="#controllers">10. Controller manager</a>
+<a href="#cloud">11. Cloud controller manager</a><a href="#workflow">12. Pod creation flow</a>
+<a href="#recap">13. Quick revision</a><a href="#accuracy">14. Modern accuracy notes</a>
+<a href="#assignment">15. Practice assignment</a>
+</div>
+</section>
+
+<section id="overview">
+<h2>01 · Kubernetes — the big picture</h2>
+<p class="lead">Kubernetes (often shortened to <span class="marker">K8s</span>) is a container orchestration platform. It manages containerized applications across a cluster of machines.</p>
+<div class="grid2">
+ <div class="card bluecard"><h3>Cluster behaviour</h3><p>Workloads run across a group of nodes rather than being managed as isolated containers on one machine.</p></div>
+ <div class="card greencard"><h3>Self-healing</h3><p>Kubernetes works toward the declared desired state, replacing or recreating failed Pods when managed by controllers.</p></div>
+ <div class="card pinkcard"><h3>Scaling</h3><p>Workloads can be scaled by changing replica counts; autoscaling can adjust capacity when configured.</p></div>
+ <div class="card"><h3>Platform features</h3><p>Networking, service discovery, access control, security integrations, and cloud-provider integrations support production workloads.</p></div>
+</div>
+<div class="note"><b>Remember:</b> Kubernetes does not simply “run a container.” It coordinates the desired state of workloads across a cluster.</div>
+</section>
+
+<section id="docker">
+<h2>02 · Docker vs Kubernetes</h2>
+<p>The transcript introduces Kubernetes by comparing a simple container run with a Pod scheduled and managed in a cluster.</p>
+<table>
+<tr><th>Docker (simplified comparison)</th><th>Kubernetes</th></tr>
+<tr><td>Basic deployment unit: <b>container</b></td><td>Basic workload unit: <b>Pod</b> (one or more containers)</td></tr>
+<tr><td>Container engine/runtime runs containers on a host</td><td>Worker node uses kubelet and a CRI-compatible container runtime</td></tr>
+<tr><td>Container management is generally host-focused</td><td>Cluster control plane coordinates workloads across nodes</td></tr>
+<tr><td>Scaling and recovery need additional tooling or configuration</td><td>Controllers maintain desired state; scaling features can be configured</td></tr>
+</table>
+<div class="note bluebox"><b>Pod = wrapper around containers.</b> A Pod provides a shared execution context for its containers, including network identity and optionally shared storage.</div>
+</section>
+
+<section id="architecture">
+<h2>03 · Kubernetes cluster architecture</h2>
+<p>A Kubernetes cluster is commonly explained as two logical parts:</p>
+<div class="diagram">
+<div class="diagram-title">Cluster overview · control plane directs, worker nodes execute</div>
+<svg viewBox="0 0 900 500" role="img" aria-label="Kubernetes architecture diagram showing control plane and two worker nodes">
+<defs><marker id="arr" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#526176"/></marker></defs>
+<rect x="18" y="18" width="864" height="178" rx="16" fill="#eef5ff" stroke="#8bb5df" stroke-width="2"/>
+<text x="38" y="46" class="svgtext">CONTROL PLANE  ·  CLUSTER MANAGEMENT</text>
+<rect x="40" y="66" width="175" height="95" rx="10" fill="#cfe8ff" stroke="#6b9fc9"/><text x="127" y="105" text-anchor="middle" class="svgtext">API SERVER</text><text x="127" y="127" text-anchor="middle" class="svgsmall">Front door / API</text>
+<rect x="235" y="66" width="145" height="95" rx="10" fill="#fff0a8" stroke="#d6b94e"/><text x="307" y="105" text-anchor="middle" class="svgtext">SCHEDULER</text><text x="307" y="127" text-anchor="middle" class="svgsmall">Chooses a node</text>
+<rect x="400" y="66" width="145" height="95" rx="10" fill="#d9f3df" stroke="#83b58d"/><text x="472" y="105" text-anchor="middle" class="svgtext">etcd</text><text x="472" y="127" text-anchor="middle" class="svgsmall">Cluster data store</text>
+<rect x="565" y="66" width="145" height="95" rx="10" fill="#e8ddff" stroke="#a48bdb"/><text x="637" y="105" text-anchor="middle" class="svgtext">CONTROLLER</text><text x="637" y="127" text-anchor="middle" class="svgsmall">MANAGER</text>
+<rect x="730" y="66" width="132" height="95" rx="10" fill="#ffd9e4" stroke="#d69aaa"/><text x="796" y="101" text-anchor="middle" class="svgtext">CLOUD</text><text x="796" y="120" text-anchor="middle" class="svgtext">CONTROLLER</text><text x="796" y="139" text-anchor="middle" class="svgsmall">if cloud-integrated</text>
+<path d="M127 196 V235 H450 V265" fill="none" stroke="#526176" stroke-width="2.5" marker-end="url(#arr)"/>
+<path d="M307 196 V225 H450" fill="none" stroke="#526176" stroke-width="2"/>
+<text x="470" y="229" class="svgsmall">API / scheduling / reconciliation</text>
+<rect x="25" y="270" width="410" height="205" rx="15" fill="#f1fbf2" stroke="#8dbb95" stroke-width="2"/>
+<text x="45" y="298" class="svgtext">WORKER NODE 1</text>
+<rect x="45" y="315" width="112" height="60" rx="8" fill="#d9f3df" stroke="#83b58d"/><text x="101" y="340" text-anchor="middle" class="svgtext">kubelet</text><text x="101" y="358" text-anchor="middle" class="svgsmall">node agent</text>
+<rect x="171" y="315" width="112" height="60" rx="8" fill="#cfe8ff" stroke="#6b9fc9"/><text x="227" y="340" text-anchor="middle" class="svgtext">kube-proxy</text><text x="227" y="358" text-anchor="middle" class="svgsmall">Service rules</text>
+<rect x="297" y="315" width="118" height="60" rx="8" fill="#fff0a8" stroke="#d6b94e"/><text x="356" y="340" text-anchor="middle" class="svgtext">Runtime</text><text x="356" y="358" text-anchor="middle" class="svgsmall">runs containers</text>
+<rect x="45" y="395" width="370" height="58" rx="9" fill="#fff" stroke="#b7c8b9"/><text x="230" y="420" text-anchor="middle" class="svgtext">POD(S)</text><text x="230" y="439" text-anchor="middle" class="svgsmall">application container(s)</text>
+<rect x="465" y="270" width="410" height="205" rx="15" fill="#f1fbf2" stroke="#8dbb95" stroke-width="2"/>
+<text x="485" y="298" class="svgtext">WORKER NODE 2</text>
+<rect x="485" y="315" width="112" height="60" rx="8" fill="#d9f3df" stroke="#83b58d"/><text x="541" y="340" text-anchor="middle" class="svgtext">kubelet</text><text x="541" y="358" text-anchor="middle" class="svgsmall">node agent</text>
+<rect x="611" y="315" width="112" height="60" rx="8" fill="#cfe8ff" stroke="#6b9fc9"/><text x="667" y="340" text-anchor="middle" class="svgtext">kube-proxy</text><text x="667" y="358" text-anchor="middle" class="svgsmall">Service rules</text>
+<rect x="737" y="315" width="118" height="60" rx="8" fill="#fff0a8" stroke="#d6b94e"/><text x="796" y="340" text-anchor="middle" class="svgtext">Runtime</text><text x="796" y="358" text-anchor="middle" class="svgsmall">runs containers</text>
+<rect x="485" y="395" width="370" height="58" rx="9" fill="#fff" stroke="#b7c8b9"/><text x="670" y="420" text-anchor="middle" class="svgtext">POD(S)</text><text x="670" y="439" text-anchor="middle" class="svgsmall">application container(s)</text>
+</svg>
+</div>
+<div class="grid2">
+<div class="card bluecard"><h3>Control Plane</h3><p><span class="marker">Makes cluster-level decisions</span>: accepts API requests, stores cluster state, schedules Pods, and runs controllers.</p></div>
+<div class="card greencard"><h3>Data Plane / Worker Nodes</h3><p><span class="marker">Runs application workloads</span>: hosts Pods and provides node-level services needed to run them.</p></div>
+</div>
+<p class="small">Diagram is conceptual: real clusters may have multiple control-plane nodes, many workers, and additional networking/storage components.</p>
+</section>
+
+<section id="kubelet">
+<h2>04 · Kubelet — the node agent</h2>
+<p><b>Where?</b> Runs on every worker node (and also on control-plane nodes that are configured to run kubelet).</p>
+<ul>
+<li>Communicates with the API server.</li>
+<li>Ensures the containers described by assigned Pod specifications are running and healthy, using the container runtime.</li>
+<li>Reports node and Pod status back to the control plane.</li>
+</ul>
+<div class="note"><b>Memory hook:</b> <span class="green">kubelet = node agent that makes the assigned Pod specification happen.</span></div>
+</section>
+
+<section id="kubeproxy">
+<h2>05 · Kube-proxy — Service networking</h2>
+<ul>
+<li>Runs on nodes and implements Kubernetes Service networking behaviour.</li>
+<li>Programs network rules so traffic destined for a Service can be directed to an appropriate backend endpoint.</li>
+<li>Traditionally uses iptables or IPVS; modern clusters may use other implementations or replace kube-proxy functionality.</li>
+</ul>
+<div class="note bluebox"><b>Do not mix these up:</b> Pod IP allocation is generally handled by the cluster's CNI network plugin. Kube-proxy is mainly associated with Service virtual IP / traffic forwarding behaviour.</div>
+</section>
+
+<section id="runtime">
+<h2>06 · Container runtime</h2>
+<p>The runtime is the software that actually starts and manages containers on a node.</p>
+<div class="flow"><span class="step">kubelet</span><span class="arrow">→</span><span class="step">CRI interface</span><span class="arrow">→</span><span class="step">Container runtime</span><span class="arrow">→</span><span class="step">Containers</span></div>
+<p>Examples include <b>containerd</b> and <b>CRI-O</b>. Kubernetes talks to runtimes through the <span class="marker">Container Runtime Interface (CRI)</span>.</p>
+<div class="note redbox"><b>Historical note:</b> The transcript mentions Docker shim. Kubernetes removed its built-in dockershim in v1.24. Docker Engine can still be used with Kubernetes through an appropriate CRI adapter, but Docker is not required.</div>
+</section>
+
+<section id="apiserver">
+<h2>07 · API server — the front door</h2>
+<p>The API server exposes the Kubernetes API and is the main entry point for requests from users, automation, and cluster components.</p>
+<ul>
+<li>Receives and validates API requests.</li>
+<li>Performs authentication, authorization, and admission processing.</li>
+<li>Reads and updates cluster state in etcd.</li>
+<li>Provides the API through which components communicate.</li>
+</ul>
+<div class="note"><b>Interview line:</b> <span class="blue">kube-apiserver is the front end of the Kubernetes control plane.</span></div>
+</section>
+
+<section id="scheduler">
+<h2>08 · Scheduler — chooses the node</h2>
+<p>The scheduler watches for Pods that have not yet been assigned to a node, evaluates eligible nodes, and selects a suitable node.</p>
+<ul><li>Considers resource requests and constraints such as affinity, taints, and tolerations.</li><li>It selects a node; kubelet on that node then works with the runtime to start the Pod's containers.</li></ul>
+<div class="flow"><span class="step">Pending Pod</span><span class="arrow">→</span><span class="step">Scheduler evaluates nodes</span><span class="arrow">→</span><span class="step">Node selected</span></div>
+<div class="note"><b>Remember:</b> Scheduler decides <i>where</i> a Pod should run. It does not itself start the containers.</div>
+</section>
+
+<section id="etcd">
+<h2>09 · etcd — cluster data store</h2>
+<p><b>etcd</b> is a consistent, distributed key-value store used by Kubernetes to persist its cluster state and configuration data.</p>
+<ul><li>Stores Kubernetes API data such as objects and their desired configuration.</li><li>It is critical to cluster recovery; protect it with secure, tested backups.</li><li>Access should be tightly restricted because it contains sensitive cluster data.</li></ul>
+<div class="note"><b>Memory hook:</b> <span class="pink">etcd = persistent key-value store for Kubernetes cluster state.</span></div>
+</section>
+
+<section id="controllers">
+<h2>10 · Controller manager</h2>
+<p>The controller manager runs control loops. A controller continuously compares the <b>desired state</b> with the <b>observed state</b> and takes action to move the cluster toward the desired state.</p>
+<div class="diagram">
+<div class="diagram-title">Controller reconciliation loop</div>
+<svg viewBox="0 0 760 210" role="img" aria-label="Controller loop compares desired state and actual state">
+<defs><marker id="arr2" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#526176"/></marker></defs>
+<rect x="20" y="55" width="180" height="90" rx="12" fill="#fff0a8" stroke="#d6b94e"/><text x="110" y="91" text-anchor="middle" class="svgtext">DESIRED STATE</text><text x="110" y="114" text-anchor="middle" class="svgsmall">e.g. 3 replicas</text>
+<rect x="280" y="55" width="200" height="90" rx="12" fill="#cfe8ff" stroke="#6b9fc9"/><text x="380" y="91" text-anchor="middle" class="svgtext">CONTROLLER</text><text x="380" y="114" text-anchor="middle" class="svgsmall">compare + reconcile</text>
+<rect x="560" y="55" width="180" height="90" rx="12" fill="#d9f3df" stroke="#83b58d"/><text x="650" y="91" text-anchor="middle" class="svgtext">OBSERVED STATE</text><text x="650" y="114" text-anchor="middle" class="svgsmall">e.g. 2 running Pods</text>
+<path d="M200 100 H275" stroke="#526176" stroke-width="2" marker-end="url(#arr2)"/><path d="M480 100 H555" stroke="#526176" stroke-width="2" marker-end="url(#arr2)"/>
+<path d="M650 150 V185 H380 V150" fill="none" stroke="#526176" stroke-width="2" marker-end="url(#arr2)"/>
+<text x="515" y="201" class="svgsmall">repeat continuously</text>
+</svg>
+</div>
+<p><b>Example — ReplicaSet controller:</b> if the desired replica count is 3 but only 2 matching Pods exist, the controller works to create another Pod.</p>
+<div class="note greenbox"><b>Key phrase:</b> Kubernetes controllers are reconciliation loops — they keep working to match actual state to desired state.</div>
+</section>
+
+<section id="cloud">
+<h2>11 · Cloud controller manager (CCM)</h2>
+<p>Used when Kubernetes integrates with a cloud provider. It contains cloud-specific control logic so Kubernetes can interact with provider services.</p>
+<ul>
+<li>Can manage or coordinate cloud load balancers for Services.</li>
+<li>Can integrate node information and routes with the cloud provider.</li>
+<li>Can support cloud storage integrations through related provider components.</li>
+</ul>
+<div class="note bluebox"><b>On-premises clusters:</b> a cloud controller manager may not be needed when there is no cloud-provider integration to manage.</div>
+</section>
+
+<section id="workflow">
+<h2>12 · What happens when a Pod is created?</h2>
+<p>Follow the simplified request path below. This ties the components together.</p>
+<div class="diagram">
+<div class="diagram-title">Pod creation — simplified sequence</div>
+<svg viewBox="0 0 820 570" role="img" aria-label="Pod creation sequence through API server, etcd, scheduler, kubelet, runtime and controllers">
+<defs><marker id="arr3" markerWidth="8" markerHeight="8" refX="6" refY="3" orient="auto"><path d="M0,0 L6,3 L0,6" fill="#526176"/></marker></defs>
+<g font-family="Arial,sans-serif" font-weight="700" fill="#24334a" text-anchor="middle">
+<rect x="230" y="15" width="360" height="52" rx="10" fill="#fff0a8" stroke="#d6b94e"/><text x="410" y="47" font-size="15">1 · User runs kubectl apply</text>
+<rect x="230" y="100" width="360" height="52" rx="10" fill="#cfe8ff" stroke="#6b9fc9"/><text x="410" y="132" font-size="15">2 · API server validates request</text>
+<rect x="230" y="185" width="360" height="52" rx="10" fill="#d9f3df" stroke="#83b58d"/><text x="410" y="217" font-size="15">3 · Desired object is stored in etcd</text>
+<rect x="230" y="270" width="360" height="52" rx="10" fill="#e8ddff" stroke="#a48bdb"/><text x="410" y="302" font-size="15">4 · Scheduler selects a suitable node</text>
+<rect x="230" y="355" width="360" height="52" rx="10" fill="#ffd9e4" stroke="#d69aaa"/><text x="410" y="387" font-size="15">5 · Kubelet notices assigned Pod</text>
+<rect x="230" y="440" width="360" height="52" rx="10" fill="#fff0a8" stroke="#d6b94e"/><text x="410" y="472" font-size="15">6 · Runtime starts container(s)</text>
+<rect x="230" y="525" width="360" height="38" rx="10" fill="#d9f3df" stroke="#83b58d"/><text x="410" y="550" font-size="14">7 · Status is reported to API server</text>
+</g>
+<g stroke="#526176" stroke-width="2" marker-end="url(#arr3)"><path d="M410 67 V95"/><path d="M410 152 V180"/><path d="M410 237 V265"/><path d="M410 322 V350"/><path d="M410 407 V435"/><path d="M410 492 V520"/></g>
+</svg>
+</div>
+<p class="small">Controllers also watch cluster state and reconcile desired state continuously. Networking setup is performed by the node's networking components / CNI plugin; Service routing is handled by the cluster networking implementation.</p>
+</section>
+
+<section id="recap">
+<h2>13 · Quick revision — interview table</h2>
+<table>
+<tr><th>Component</th><th>Where?</th><th>One-line responsibility</th></tr>
+<tr><td><b>kube-apiserver</b></td><td>Control Plane</td><td>Exposes the Kubernetes API; handles API requests.</td></tr>
+<tr><td><b>etcd</b></td><td>Control Plane</td><td>Stores persistent cluster state as key-value data.</td></tr>
+<tr><td><b>kube-scheduler</b></td><td>Control Plane</td><td>Selects a suitable node for an unscheduled Pod.</td></tr>
+<tr><td><b>kube-controller-manager</b></td><td>Control Plane</td><td>Runs controllers that reconcile desired and actual state.</td></tr>
+<tr><td><b>cloud-controller-manager</b></td><td>Control Plane (cloud setups)</td><td>Connects Kubernetes control loops to cloud-provider APIs.</td></tr>
+<tr><td><b>kubelet</b></td><td>Each node</td><td>Node agent; makes assigned Pod specs run and reports status.</td></tr>
+<tr><td><b>kube-proxy</b></td><td>Usually each node</td><td>Implements Service traffic forwarding rules, when used.</td></tr>
+<tr><td><b>Container runtime</b></td><td>Each node</td><td>Downloads/manages images and runs containers via CRI.</td></tr>
+</table>
+<div class="note"><b>30-second answer:</b> The Control Plane manages the cluster. The API server is the entry point, etcd stores state, the scheduler chooses nodes, and controllers reconcile desired state. Worker nodes run Pods using kubelet and a container runtime; kube-proxy or an alternative networking implementation handles Service traffic.</div>
+</section>
+
+<section id="accuracy">
+<h2>14 · Important modern accuracy notes</h2>
+<p>The transcript is a beginner-friendly explanation. These clarifications help keep your notes technically accurate for current Kubernetes:</p>
+<ol>
+<li><b>Docker shim is historical.</b> Kubernetes removed dockershim in v1.24. Current clusters commonly use containerd or CRI-O through CRI.</li>
+<li><b>CRI means Container Runtime Interface.</b> It is the interface between kubelet and the container runtime.</li>
+<li><b>Kubelet does not ask a central component to restart every failed Pod.</b> Kubelet manages containers for Pods assigned to its node and reports status. Higher-level controllers such as Deployments / ReplicaSets replace missing Pods to maintain desired replicas.</li>
+<li><b>kube-proxy does not normally allocate Pod IP addresses.</b> Pod networking and IP allocation are typically provided by a CNI plugin. kube-proxy implements Service networking when the cluster uses it.</li>
+<li><b>Scheduler selects; kubelet runs.</b> These are separate responsibilities and a common interview distinction.</li>
+</ol>
+<div class="note redbox"><b>Exam tip:</b> If your course instructor uses a simplified analogy, understand the analogy first — then use these clarifications when explaining a real Kubernetes cluster.</div>
+</section>
+
+<section id="assignment">
+<h2>15 · Practice assignment</h2>
+<p>Use these tasks to turn the architecture into practical understanding.</p>
+<ol>
+<li>Draw the Control Plane and two Worker Nodes. Label every component.</li>
+<li>Explain the path of <code>kubectl apply -f pod.yaml</code> from request to running Pod.</li>
+<li>Write one sentence each for kubelet, kube-proxy, container runtime, API server, scheduler, etcd, and controller manager.</li>
+<li>Create a Deployment with 3 replicas. Delete one Pod and observe how the ReplicaSet restores the desired count.</li>
+<li>Inspect your cluster with <code>kubectl get nodes</code>, <code>kubectl get pods -A</code>, and <code>kubectl describe pod &lt;pod-name&gt;</code>.</li>
+<li>Write a short GitHub README explaining the architecture and share the diagram with your study notes.</li>
+</ol>
+<div class="note greenbox"><b>Self-check:</b> Can you explain why Kubernetes needs both a Control Plane and Worker Nodes without simply memorizing component names?</div>
+</section>
+
+<div class="footer">KUBERNETES ARCHITECTURE · PERSONAL STUDY NOTES · Author: Ayush Parab</div>
+</article>
+</main>
+</div>
+</body>
+</html>
